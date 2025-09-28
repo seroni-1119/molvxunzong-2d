@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>角色动画测试</title>
+    <style>
+        body {
+            background: #0f0f14;
+            color: #fff;
+            font-family: system-ui;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid #333;
+            background: #222;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            background: #5b8cff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>角色动画测试</h1>
+    <canvas id="testCanvas" width="400" height="300"></canvas>
+    <div class="controls">
+        <button onclick="testAnimation('idle', 'up')">待机-上</button>
+        <button onclick="testAnimation('idle', 'down')">待机-下</button>
+        <button onclick="testAnimation('idle', 'left')">待机-左</button>
+        <button onclick="testAnimation('idle', 'right')">待机-右</button>
+        <br>
+        <button onclick="testAnimation('walk', 'up')">移动-上</button>
+        <button onclick="testAnimation('walk', 'down')">移动-下</button>
+        <button onclick="testAnimation('walk', 'left')">移动-左</button>
+        <button onclick="testAnimation('walk', 'right')">移动-右</button>
+    </div>
+    <div class="status" id="status">等待图片加载...</div>
+
+    <script>
+        // 简化的动画测试系统
+        class TestAnimation {
+            constructor() {
+                this.images = {
+                    idle: { up: null, down: null, left: null, right: null },
+                    walk: { up: [], down: [], left: [], right: [] }
+                };
+                this.currentState = 'idle';
+                this.currentDirection = 'down';
+                this.currentFrame = 0;
+                this.frameTime = 0;
+                this.frameRate = 8;
+                this.loaded = false;
+                this.loadImages();
+            }
+
+            loadImages() {
+                const basePath = './';
+                let loadedCount = 0;
+                const totalImages = 1 + 1 + 1 + 1 + 9 + 8 + 9 + 8;
+
+                // 待机状态
+                this.loadImage(basePath + 'back right/2_ling_back right_01.png', (img) => {
+                    this.images.idle.up = img;
+                    this.checkLoadComplete(++loadedCount, totalImages);
+                });
+                this.loadImage(basePath + 'zheng left/2_ling_go_left_01.png', (img) => {
+                    this.images.idle.down = img;
+                    this.checkLoadComplete(++loadedCount, totalImages);
+                });
+                this.loadImage(basePath + 'back left/2_ling_back left_01.png', (img) => {
+                    this.images.idle.left = img;
+                    this.checkLoadComplete(++loadedCount, totalImages);
+                });
+                this.loadImage(basePath + 'zheng right/2_ling_go_right_01.png', (img) => {
+                    this.images.idle.right = img;
+                    this.checkLoadComplete(++loadedCount, totalImages);
+                });
+
+                // 移动状态
+                for (let i = 1; i <= 9; i++) {
+                    this.loadImage(basePath + `back right/2_ling_back right_0${i}.png`, (img) => {
+                        this.images.walk.up.push(img);
+                        this.checkLoadComplete(++loadedCount, totalImages);
+                    });
+                }
+                for (let i = 1; i <= 8; i++) {
+                    this.loadImage(basePath + `zheng left/2_ling_go_left_0${i}.png`, (img) => {
+                        this.images.walk.down.push(img);
+                        this.checkLoadComplete(++loadedCount, totalImages);
+                    });
+                }
+                for (let i = 1; i <= 9; i++) {
+                    this.loadImage(basePath + `back left/2_ling_back left_0${i}.png`, (img) => {
+                        this.images.walk.left.push(img);
+                        this.checkLoadComplete(++loadedCount, totalImages);
+                    });
+                }
+                for (let i = 1; i <= 8; i++) {
+                    this.loadImage(basePath + `zheng right/2_ling_go_right_0${i}.png`, (img) => {
+                        this.images.walk.right.push(img);
+                        this.checkLoadComplete(++loadedCount, totalImages);
+                    });
+                }
+            }
+
+            loadImage(src, callback) {
+                const img = new Image();
+                img.onload = () => callback(img);
+                img.onerror = () => {
+                    console.warn('Failed to load:', src);
+                    callback(null);
+                };
+                img.src = src;
+            }
+
+            checkLoadComplete(loaded, total) {
+                document.getElementById('status').textContent = `图片加载进度: ${loaded}/${total}`;
+                if (loaded >= total) {
+                    this.loaded = true;
+                    document.getElementById('status').textContent = '所有图片加载完成！';
+                }
+            }
+
+            setState(state, direction) {
+                this.currentState = state;
+                this.currentDirection = direction;
+                this.currentFrame = 0;
+                this.frameTime = 0;
+            }
+
+            update(dt) {
+                if (!this.loaded) return;
+
+                if (this.currentState === 'walk') {
+                    this.frameTime += dt;
+                    const frameDuration = 1 / this.frameRate;
+                    
+                    if (this.frameTime >= frameDuration) {
+                        this.frameTime = 0;
+                        const frames = this.images.walk[this.currentDirection];
+                        if (frames && frames.length > 0) {
+                            this.currentFrame = (this.currentFrame + 1) % frames.length;
+                        }
+                    }
+                }
+            }
+
+            getCurrentImage() {
+                if (!this.loaded) return null;
+
+                if (this.currentState === 'idle') {
+                    return this.images.idle[this.currentDirection];
+                } else if (this.currentState === 'walk') {
+                    const frames = this.images.walk[this.currentDirection];
+                    return frames && frames[this.currentFrame] ? frames[this.currentFrame] : null;
+                }
+                return null;
+            }
+        }
+
+        const canvas = document.getElementById('testCanvas');
+        const ctx = canvas.getContext('2d');
+        const animation = new TestAnimation();
+
+        function testAnimation(state, direction) {
+            animation.setState(state, direction);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const img = animation.getCurrentImage();
+            if (img) {
+                const x = canvas.width / 2;
+                const y = canvas.height / 2;
+                const scale = 2;
+                const width = img.width * scale;
+                const height = img.height * scale;
+                
+                ctx.drawImage(img, x - width/2, y - height/2, width, height);
+                
+                // 显示状态信息
+                ctx.fillStyle = 'white';
+                ctx.font = '16px system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${animation.currentState} - ${animation.currentDirection}`, x, y + height/2 + 20);
+                if (animation.currentState === 'walk') {
+                    ctx.fillText(`Frame: ${animation.currentFrame}`, x, y + height/2 + 40);
+                }
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.font = '16px system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText('图片加载中...', canvas.width/2, canvas.height/2);
+            }
+        }
+
+        let lastTime = performance.now();
+        function loop() {
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+            
+            animation.update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
